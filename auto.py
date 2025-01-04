@@ -1,6 +1,9 @@
+import threading
+import queue
+import time
+import random
 import pygame
 import math
-import random
 
 # Initialize pygame
 pygame.init()
@@ -8,13 +11,11 @@ pygame.init()
 # Load cannon sprites
 cannon1_img = pygame.image.load("cannon.png")
 cannon2_img = pygame.image.load("cannon.png")
-ball_img = pygame.image.load("ball.png")
 
 # Scale cannon sprites (if necessary)
 cannon1_img = pygame.transform.scale(cannon1_img, (60, 20))  # Adjust size as needed
 cannon2_img = pygame.transform.scale(cannon2_img, (60, 20))  # Adjust size as needed
 cannon2_img = pygame.transform.flip(cannon2_img, False, True)  # Flip the cannon sprite
-ball_img = pygame.transform.scale(ball_img, (40, 40))  # Adjust size as needed
 
 
 # Screen settings
@@ -75,10 +76,25 @@ winning_score = 5
 
 # Turn
 current_turn = 1  # 1 for Player 1, 2 for Player 2
+turn_delay = 0.5  # Delay between turns
+
+player1_queue = queue.Queue()
+player2_queue = queue.Queue()
 
 # Font
 font = pygame.font.Font(None, 36)
 font_bulletcount = pygame.font.Font(None, 24)
+
+def player_script(player_queue, response_queue, cannon_x, cannon_y):
+    while True:
+        ready_signal = player_queue.get()  # Wait for the ready signal
+        if ready_signal == "READY":
+            # Calculate angle and power (example logic)
+            target_x, target_y = WIDTH // 2, HEIGHT // 2
+            angle = math.degrees(math.atan2(cannon_y - target_y, target_x - cannon_x))
+            power = random.randint(5, MAX_POWER)  # Random power
+            bullet_type = random.choice(["power", "precision"])
+            response_queue.put((angle, power, bullet_type))  # Send calculated values
 
 def draw_field():
     # Green background for the field
@@ -122,8 +138,7 @@ def draw_power_bar(x, y, power, color):
     pygame.draw.rect(screen, color, (x - 25, y + 40, int(50 * (power / MAX_POWER)), 10))  # Charging bar
 
 def draw_ball():
-    # pygame.draw.circle(screen, GREEN, ball_pos, BALL_RADIUS)
-    screen.blit(ball_img, (ball_pos[0] - BALL_RADIUS, ball_pos[1] - BALL_RADIUS))
+    pygame.draw.circle(screen, GREEN, ball_pos, BALL_RADIUS)
 
 def draw_bullets():
     for bullet in bullets:
@@ -192,10 +207,14 @@ def restart_game():
 
 def main():
     global cannon1_angle, cannon1_power, cannon2_angle, cannon2_power, current_turn, charging_power, powerbulletscount, precisionbulletscount, powerbullets1, powerbullets2, precisionbullets1, precisionbullets2, powerbullet_angle_error, player1_score, player2_score, ball_vel, ball_pos, bullets, counter, bullets_used1, bullets_used2
+    threading.Thread(target=player_script, args=(player1_queue, player1_response_queue, 50, HEIGHT // 2), daemon=True).start()
+    threading.Thread(target=player_script, args=(player2_queue, player2_response_queue, WIDTH - 50, HEIGHT // 2), daemon=True).start()
+    turn_delay = 0.5  # Delay between turns in seconds
+    last_turn_time = pygame.time.get_ticks()  # Track time of the last turn
+    waiting_for_response = False
     running = True
     game_over = False
     while running:
-        # screen.fill(WHITE)
         if game_over:
             screen.fill(WHITE)
             winner_text = font.render(f"Player {1 if player1_score > player2_score else 2} wins!", True, BLACK)
@@ -227,21 +246,58 @@ def main():
             pygame.display.flip()
             clock.tick(FPS)
             continue
+        # screen.fill(WHITE)
         draw_field()
 
-        # Draw cannons
+        # Draw Cannons
         cannon1_angle = draw_cannon(50, HEIGHT // 2, cannon1_img)
         cannon2_angle = draw_cannon(WIDTH - 50, HEIGHT // 2, cannon2_img)
 
         draw_ball()
         draw_bullets()
 
-        # Draw power bars
-        if current_turn == 1:
-            draw_power_bar(50, HEIGHT // 2, cannon1_power, RED)
-        else:
-            draw_power_bar(WIDTH - 50, HEIGHT // 2, cannon2_power, BLUE)
+        current_time = pygame.time.get_ticks()
 
+        # Handle turns without blocking
+        if not waiting_for_response and current_time - last_turn_time >= turn_delay * 1000:
+            if current_turn == 1:
+                player1_queue.put("READY")
+                waiting_for_response = True
+            elif current_turn == 2:
+                player2_queue.put("READY")
+                waiting_for_response = True
+
+        angle, power = 0, 0
+
+        if waiting_for_response:
+            try:
+                if current_turn == 1 and not player1_response_queue.empty():
+                    angle, power, bullet_type = player1_response_queue.get_nowait()
+
+                    bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
+                    power = 0  # Reset power after shooting
+                    current_turn = 2
+                    waiting_for_response = False
+                    last_turn_time = pygame.time.get_ticks()
+
+                elif current_turn == 2 and not player2_response_queue.empty():
+                    angle, power, bullet_type = player2_response_queue.get_nowait()
+
+                    bullets.append([WIDTH - 50, HEIGHT // 2, angle, power, bullet_type ])
+                    cannon2_power = 0  # Reset power after shooting
+                    current_turn = 1
+                    waiting_for_response = False
+                    last_turn_time = pygame.time.get_ticks()
+            except queue.Empty:
+                pass
+
+        # Draw power bars
+        # if current_turn == 1:
+        #     draw_power_bar(50, HEIGHT // 2, power, RED)
+        # else:
+        #     draw_power_bar(WIDTH - 50, HEIGHT // 2, power, BLUE)
+
+        # Display scores and turn
         # Display scores and turn
         score_text = font.render(f"Player 1: {player1_score}  Player 2: {player2_score}", True, BLACK)
         turn_text = font.render(f"Player {current_turn}'s Turn", True, BLACK)
@@ -260,37 +316,6 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN :
-                charging_power = True
-
-            if event.type == pygame.MOUSEBUTTONUP and charging_power:
-                x, y = pygame.mouse.get_pos()
-                if current_turn == 1:
-                    angle = math.degrees(math.atan2(HEIGHT // 2 - y, x - 50))
-                    if event.button == 1 and powerbullets1 > 0:
-                        bullets_used1 += 1
-                        powerbullets1 -= 1
-                        bullets.append([50, HEIGHT // 2, angle + random.randint(-powerbullet_angle_error, powerbullet_angle_error), cannon1_power, "power"])
-                    elif event.button == 3 and precisionbullets1 > 0:
-                        bullets_used1 += 1
-                        precisionbullets1 -= 1
-                        bullets.append([50, HEIGHT // 2, angle, cannon1_power, "precision"])
-                    cannon1_power = 0  # Reset power after shooting
-                    current_turn = 2
-                elif current_turn == 2:
-                    angle = math.degrees(math.atan2(HEIGHT // 2 - y, x - (WIDTH - 50)))
-                    if event.button == 1 and powerbullets2 > 0:
-                        bullets_used2 += 1
-                        powerbullets2 -= 1
-                        bullets.append([WIDTH - 50, HEIGHT // 2, angle + random.randint(-powerbullet_angle_error, powerbullet_angle_error), cannon2_power, "power"])
-                    elif event.button == 3 and precisionbullets2 > 0:
-                        bullets_used2 += 1
-                        precisionbullets2 -= 1
-                        bullets.append([WIDTH - 50, HEIGHT // 2, angle, cannon2_power, "precision"])
-                    cannon2_power = 0  # Reset power after shooting
-                    current_turn = 1
-                charging_power = False
-
             if event.type == pygame.USEREVENT:
                 counter -= 1
                 if counter > 0:
@@ -299,35 +324,44 @@ def main():
                     text = 'Time is up!'.rjust(3)
                     game_over = True
 
+            # if event.type == pygame.MOUSEBUTTONDOWN :
+            #     charging_power = True
+
+            # if event.type == pygame.MOUSEBUTTONUP and charging_power:
+            #     x, y = pygame.mouse.get_pos()
+            #     if current_turn == 1:
+            #         angle = math.degrees(math.atan2(HEIGHT // 2 - y, x - 50))
+            #         bullets.append([50, HEIGHT // 2, angle, cannon1_power])
+            #         cannon1_power = 0  # Reset power after shooting
+            #         current_turn = 2
+            #     elif current_turn == 2:
+            #         angle = math.degrees(math.atan2(HEIGHT // 2 - y, x - (WIDTH - 50)))
+            #         bullets.append([WIDTH - 50, HEIGHT // 2, angle, cannon2_power])
+            #         cannon2_power = 0  # Reset power after shooting
+            #         current_turn = 1
+            #     charging_power = False
+        
+
+
         # Charge power
-        if charging_power:
-            if current_turn == 1 and cannon1_power < MAX_POWER:
-                cannon1_power += power_increment
-            elif current_turn == 2 and cannon2_power < MAX_POWER:
-                cannon2_power += power_increment
+        # if charging_power:
+        #     if current_turn == 1 and cannon1_power < MAX_POWER:
+        #         cannon1_power += power_increment
+        #     elif current_turn == 2 and cannon2_power < MAX_POWER:
+        #         cannon2_power += power_increment
 
         # Update
         update_ball()
         handle_bullets()
-
-        # Check for if both players run out of bullets
-        if powerbullets1 == 0 and precisionbullets1 == 0 and powerbullets2 == 0 and precisionbullets2 == 0 and ball_vel == [0, 0] and len(bullets) == 0:
-            # Give point to ball closest to a wall
-            if ball_pos[0] < WIDTH // 2:
-                player2_score += 1
-            else:
-                player1_score += 1
-            reset_ball()
-
-        # Check for game over
-        if player1_score >= winning_score or player2_score >= winning_score or counter == 0:
-            game_over = True
 
         # Update screen
         pygame.display.flip()
         clock.tick(FPS)
 
     pygame.quit()
+
+player1_response_queue = queue.Queue()
+player2_response_queue = queue.Queue()
 
 if __name__ == "__main__":
     main()
