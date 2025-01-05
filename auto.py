@@ -85,14 +85,28 @@ player2_queue = queue.Queue()
 font = pygame.font.Font(None, 36)
 font_bulletcount = pygame.font.Font(None, 24)
 
-def player_script(player_queue, response_queue, cannon_x, cannon_y):
+def player_script_Left(player_queue, response_queue, cannon_x, cannon_y):
     while True:
         ready_signal = player_queue.get()  # Wait for the ready signal
         if ready_signal == "READY":
             # Calculate angle and power (example logic)
-            target_x, target_y = WIDTH // 2, HEIGHT // 2
+            # target_x, target_y = WIDTH // 2, HEIGHT // 2
+            target_x, target_y = ball_pos
             angle = math.degrees(math.atan2(cannon_y - target_y, target_x - cannon_x))
             power = random.randint(5, MAX_POWER)  # Random power
+            bullet_type = random.choice(["power", "precision"])
+            response_queue.put((angle, power, bullet_type))  # Send calculated values
+
+def player_script_Right(player_queue, response_queue, cannon_x, cannon_y):
+    while True:
+        ready_signal = player_queue.get()  # Wait for the ready signal
+        if ready_signal == "READY":
+            # Calculate angle and power (example logic)
+            # target_x, target_y = WIDTH // 2, HEIGHT // 2
+            target_x, target_y = ball_pos
+            angle = math.degrees(math.atan2(cannon_y - target_y, target_x - cannon_x))
+            # power = random.randint(5, MAX_POWER)  # Random power
+            power = MAX_POWER
             bullet_type = random.choice(["power", "precision"])
             response_queue.put((angle, power, bullet_type))  # Send calculated values
 
@@ -116,7 +130,8 @@ def draw_field():
 
 def draw_cannon(x, y, img):
     # Get mouse position
-    mouse_x, mouse_y = pygame.mouse.get_pos()
+    # mouse_x, mouse_y = pygame.mouse.get_pos()
+    mouse_x, mouse_y = ball_pos
     
     # Calculate angle to point the cannon at the mouse
     angle = math.degrees(math.atan2(y - mouse_y, mouse_x - x))
@@ -207,8 +222,8 @@ def restart_game():
 
 def main():
     global cannon1_angle, cannon1_power, cannon2_angle, cannon2_power, current_turn, charging_power, powerbulletscount, precisionbulletscount, powerbullets1, powerbullets2, precisionbullets1, precisionbullets2, powerbullet_angle_error, player1_score, player2_score, ball_vel, ball_pos, bullets, counter, bullets_used1, bullets_used2
-    threading.Thread(target=player_script, args=(player1_queue, player1_response_queue, 50, HEIGHT // 2), daemon=True).start()
-    threading.Thread(target=player_script, args=(player2_queue, player2_response_queue, WIDTH - 50, HEIGHT // 2), daemon=True).start()
+    threading.Thread(target=player_script_Left, args=(player1_queue, player1_response_queue, 50, HEIGHT // 2), daemon=True).start()
+    threading.Thread(target=player_script_Right, args=(player2_queue, player2_response_queue, WIDTH - 50, HEIGHT // 2), daemon=True).start()
     turn_delay = 0.5  # Delay between turns in seconds
     last_turn_time = pygame.time.get_ticks()  # Track time of the last turn
     waiting_for_response = False
@@ -274,14 +289,35 @@ def main():
                 if current_turn == 1 and not player1_response_queue.empty():
                     angle, power, bullet_type = player1_response_queue.get_nowait()
 
-                    bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
+                    if bullet_type == "power" and powerbullets1 > 0:
+                        bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
+                        powerbullets1 -= 1  # Decrease power bullets count after shooting
+                        
+                    elif bullet_type == "precision" and precisionbullets1 > 0:
+                        bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
+                        precisionbullets1 -= 1  # Decrease precision bullets count after shooting
+
                     power = 0  # Reset power after shooting
                     current_turn = 2
                     waiting_for_response = False
                     last_turn_time = pygame.time.get_ticks()
 
+                    # bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
+                    # power = 0  # Reset power after shooting
+                    # current_turn = 2
+                    # waiting_for_response = False
+                    # last_turn_time = pygame.time.get_ticks()
+
                 elif current_turn == 2 and not player2_response_queue.empty():
                     angle, power, bullet_type = player2_response_queue.get_nowait()
+
+                    if bullet_type == "power" and powerbullets2 > 0:
+                        bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
+                        powerbullets2 -= 1  # Decrease power bullets count after shooting
+                        
+                    elif bullet_type == "precision" and precisionbullets2 > 0:
+                        bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
+                        precisionbullets2 -= 1  # Decrease precision bullets count after shooting
 
                     bullets.append([WIDTH - 50, HEIGHT // 2, angle, power, bullet_type ])
                     cannon2_power = 0  # Reset power after shooting
