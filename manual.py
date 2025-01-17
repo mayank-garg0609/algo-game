@@ -256,6 +256,10 @@ def main():
         bullet_count_text2 = font_bulletcount.render(f"Power Bullets: {powerbullets2}\nPrecision Bullets: {precisionbullets2}", True, BLACK)
         screen.blit(bullet_count_text2, (WIDTH - bullet_count_text2.get_width() - 10, HEIGHT - bullet_count_text2.get_height() - 10))
 
+        # Render FPS counter
+        fps_text = font.render(f"FPS: {int(clock.get_fps())}", True, (255, 255, 255))
+        screen.blit(fps_text, (10, 10))
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
