@@ -4,8 +4,8 @@ import time
 import random
 import pygame
 import math
-from left import player_script as player_script_left
-from right import player_script as player_script_right
+from player1 import player_script as player_script_left
+from player2 import player_script as player_script_right
 
 # Initialize pygame
 pygame.init()
