@@ -17,6 +17,19 @@ FRICTION = 0.995
 BULLET_SPEED = 15
 
 def player_script(cannon_pos, ball_pos, power_bullet_count, precision_bullet_count, ball_vel):
+    
+    cannon_x, cannon_y = cannon_pos
+    target_x, target_y = ball_pos
+    
+    angle_radians = math.atan2(cannon_y-target_y ,cannon_x- target_x)
+    angle_degrees = math.degrees(angle_radians)
+    if(precision_bullet_count==0):
+        bullet_type='power'
+    else:
+        bullet_type='precision'
+
+    return angle_degrees, MAX_POWER, bullet_type
+    
     """
     Determines the angle, power, and bullet type for shooting the ball.
     
