@@ -94,6 +94,9 @@ player2_ready = False
 player1_executing = None
 player2_executing = None
 
+angle1 = 0
+angle2 = 180
+
 # Font
 font = pygame.font.Font(None, 36)
 font_bulletcount = pygame.font.Font(None, 24)
@@ -116,12 +119,12 @@ def draw_field():
     pygame.draw.rect(screen, WHITE, (50, HEIGHT // 2 - 75, 50, 150), 5)  # Left goal area
     pygame.draw.rect(screen, WHITE, (WIDTH - 100, HEIGHT // 2 - 75, 50, 150), 5)  # Right goal area
 
-def draw_cannon(x, y, img):
+def draw_cannon(x, y, img, angle):
     # Get ball position
     ball_x, ball_y = ball_pos
     
     # Calculate angle to point the cannon at the ball
-    angle = math.degrees(math.atan2(y - ball_y, ball_x - x))
+    # angle = math.degrees(math.atan2(y - ball_y, ball_x - x))
     
     # Rotate the cannon sprite
     rotated_img = pygame.transform.rotate(img, angle)
@@ -212,7 +215,7 @@ def restart_game():
     reset_ball()
 
 def main():
-    global cannon1_angle, cannon1_power, cannon2_angle, cannon2_power, charging_power, powerbulletscount, precisionbulletscount, powerbullets1, powerbullets2, precisionbullets1, precisionbullets2, powerbullet_angle_error, player1_score, player2_score, ball_vel, ball_pos, bullets, counter, bullets_used1, bullets_used2, player1_ready, player2_ready, last_shot_time1, last_shot_time2, player1_executing, player2_executing
+    global cannon1_angle, cannon1_power, cannon2_angle, cannon2_power, charging_power, powerbulletscount, precisionbulletscount, powerbullets1, powerbullets2, precisionbullets1, precisionbullets2, powerbullet_angle_error, player1_score, player2_score, ball_vel, ball_pos, bullets, counter, bullets_used1, bullets_used2, player1_ready, player2_ready, last_shot_time1, last_shot_time2, player1_executing, player2_executing,angle1, angle2
     running = True
     game_over = False
     while running:
@@ -252,8 +255,8 @@ def main():
         draw_field()
 
         # Draw Cannons
-        cannon1_angle = draw_cannon(50, HEIGHT // 2, cannon1_img)
-        cannon2_angle = draw_cannon(WIDTH - 50, HEIGHT // 2, cannon2_img)
+        cannon1_angle = draw_cannon(50, HEIGHT // 2, cannon1_img, angle1)
+        cannon2_angle = draw_cannon(WIDTH - 50, HEIGHT // 2, cannon2_img, angle2)
 
         draw_ball()
         draw_bullets()
@@ -289,6 +292,7 @@ def main():
             player1_command = player_script_left(cannon1_pos, ball_pos, powerbullets1, precisionbullets1, ball_vel)
             if player1_command is not None:
                 angle, power, bullet_type = player1_command
+                angle1 = angle
                 if bullet_type == "power" and powerbullets1 > 0:
                     player1_executing = (angle, power, bullet_type)
                     # bullets.append([50, HEIGHT // 2, angle, power, bullet_type])
@@ -316,6 +320,7 @@ def main():
             player2_command = player_script_right(cannon2_pos, ball_pos, powerbullets2, precisionbullets2, ball_vel)
             if player2_command is not None:
                 angle, power, bullet_type = player2_command
+                angle2 = angle
                 if bullet_type == "power" and powerbullets2 > 0:
                     player2_executing = (angle, power, bullet_type)
                     # bullets.append([WIDTH - 50, HEIGHT // 2, angle, power, bullet_type])
