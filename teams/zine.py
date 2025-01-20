@@ -47,7 +47,10 @@ def player_script(cannon_pos, ball_pos, power_bullet_count, precision_bullet_cou
 
     # Placeholder logic to calculate shooting parameters
     not_shooting = False  # Set to True if the cannon chooses not to shoot
-    angle = random.uniform(-90, 90)  # Random angle to shoot in
+    if(cannon_x<WIDTH/2):
+        angle = random.uniform(-90, 90)  # Random angle to shoot in
+    else:
+        angle = random.uniform(90, 270)
     power = random.randint(5, MAX_POWER)  # Random power level for the shot
     bullet_type = random.choice(["power", "precision"])  # Random bullet type
 
